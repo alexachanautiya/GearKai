@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "./AuthContext.jsx";
+import AuthScreen from "./AuthScreen.jsx";
 
 // ═══════════════════════════════════════════════════════════
 // MOCK DATA & CONSTANTS
@@ -1180,34 +1182,56 @@ const DEFAULT_PROFILE = {
 };
 
 export default function GearKai() {
-  const [tab, setTab] = useState("scouter");
-  const [logs, setLogs] = useState([]);
+  const { user, userProfile, isAdmin, loading, logout } = useAuth();
+  const [tab, setTab]       = useState("scouter");
+  const [logs, setLogs]     = useState([]);
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
 
-  const bmr = calculateBMR(profile);
+  // ── Loading splash ─────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: "100vh", background: "#0f0f0f",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 20
+      }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap');
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
+        <div style={{
+          width: 56, height: 56, background: "linear-gradient(135deg, #F59E0B, #d97706)",
+          borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 26, boxShadow: "0 0 40px rgba(245,158,11,0.4)",
+          animation: "pulse 1.5s infinite"
+        }}>⚡</div>
+        <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 3 }}>
+          INITIALIZING SCOUTER...
+        </div>
+      </div>
+    );
+  }
+
+  // ── Not logged in → show auth screen ──────────────────────
+  if (!user) return <AuthScreen />;
+
+  // ── Logged in → show app ───────────────────────────────────
+  const bmr  = calculateBMR(profile);
   const tdee = calculateTDEE(bmr, profile.activity);
-
   const targets = {
     calories: tdee,
-    protein: Math.round(profile.weight * 2),
-    carbs: Math.round((tdee * 0.4) / 4),
-    fat: Math.round((tdee * 0.25) / 9)
+    protein:  Math.round(profile.weight * 2),
+    carbs:    Math.round((tdee * 0.4) / 4),
+    fat:      Math.round((tdee * 0.25) / 9)
   };
 
   const addLog = (item) => setLogs(prev => [...prev, item]);
 
   return (
     <div style={{
-      background: "#0f0f0f",
-      minHeight: "100vh",
-      color: "#fff",
+      background: "#0f0f0f", minHeight: "100vh", color: "#fff",
       fontFamily: "'Inter', -apple-system, sans-serif",
-      position: "relative",
-      maxWidth: 480,
-      margin: "0 auto",
-      display: "flex",
-      flexDirection: "column"
+      position: "relative", maxWidth: 480, margin: "0 auto",
+      display: "flex", flexDirection: "column"
     }}>
       {/* Google Fonts */}
       <style>{`
@@ -1218,13 +1242,11 @@ export default function GearKai() {
         ::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.3); border-radius: 4px; }
         select option { color: #fff !important; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes scanline {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(100vh); }
-        }
+        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+        input::placeholder { color: rgba(255,255,255,0.2); }
       `}</style>
 
-      {/* Scanline Effect */}
+      {/* Scanline */}
       <div style={{
         position: "fixed", top: 0, left: 0, right: 0, height: "2px",
         background: "linear-gradient(transparent, rgba(245,158,11,0.15), transparent)",
@@ -1239,72 +1261,117 @@ export default function GearKai() {
           linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px),
           linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px)
         `,
-        backgroundSize: "40px 40px",
-        pointerEvents: "none"
+        backgroundSize: "40px 40px", pointerEvents: "none"
       }} />
 
       {/* Header */}
       <div style={{
         position: "sticky", top: 0, zIndex: 50,
-        background: "rgba(15,15,15,0.95)",
-        backdropFilter: "blur(20px)",
+        background: "rgba(15,15,15,0.95)", backdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(245,158,11,0.15)",
-        padding: "16px 20px",
+        padding: "14px 20px",
         display: "flex", justifyContent: "space-between", alignItems: "center"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
-            width: 36, height: 36, background: "linear-gradient(135deg, #F59E0B, #d97706)",
+            width: 34, height: 34, background: "linear-gradient(135deg, #F59E0B, #d97706)",
             borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 18, boxShadow: "0 0 20px rgba(245,158,11,0.4)"
+            fontSize: 16, boxShadow: "0 0 20px rgba(245,158,11,0.4)"
           }}>⚡</div>
           <div>
-            <div style={{ fontFamily: "'Orbitron', monospace", fontWeight: 900, fontSize: 18, color: "#F59E0B", letterSpacing: 3 }}>GEARKAI</div>
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: 2, fontFamily: "'Orbitron', monospace" }}>TACTICAL SCOUTER v2.0</div>
+            <div style={{ fontFamily: "'Orbitron', monospace", fontWeight: 900, fontSize: 16, color: "#F59E0B", letterSpacing: 3 }}>GEARKAI</div>
+            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", letterSpacing: 2, fontFamily: "'Orbitron', monospace" }}>TACTICAL SCOUTER v2.0</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            onClick={() => setIsAdmin(!isAdmin)}
-            style={{
-              padding: "6px 10px", background: isAdmin ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.05)",
-              border: `1px solid ${isAdmin ? "#F59E0B" : "rgba(255,255,255,0.1)"}`,
-              borderRadius: 6, color: isAdmin ? "#F59E0B" : "rgba(255,255,255,0.3)",
-              fontSize: 9, fontFamily: "'Orbitron', monospace", letterSpacing: 1, cursor: "pointer"
-            }}
-          >{isAdmin ? "⚙ ADMIN" : "👤 USER"}</button>
-          <div style={{
-            width: 8, height: 8, borderRadius: "50%", background: "#22c55e",
-            boxShadow: "0 0 8px #22c55e", animation: "pulse 2s infinite"
-          }} />
+
+        {/* User info + logout */}
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setShowLogout(!showLogout)} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "6px 10px",
+            background: isAdmin ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.05)",
+            border: `1px solid ${isAdmin ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: 8, cursor: "pointer"
+          }}>
+            <div style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: "#22c55e", boxShadow: "0 0 8px #22c55e",
+              animation: "pulse 2s infinite", flexShrink: 0
+            }} />
+            <div style={{ textAlign: "left" }}>
+              <div style={{
+                fontFamily: "'Orbitron', monospace", fontSize: 9,
+                color: isAdmin ? "#F59E0B" : "#fff", letterSpacing: 1,
+                maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+              }}>
+                {userProfile?.displayName || user.email?.split("@")[0] || "OPERATIVE"}
+              </div>
+              <div style={{ fontSize: 8, color: isAdmin ? "#F59E0B" : "rgba(255,255,255,0.3)", fontFamily: "'Orbitron', monospace", letterSpacing: 1 }}>
+                {isAdmin ? "⚙ ADMIN" : "👤 USER"}
+              </div>
+            </div>
+          </button>
+
+          {/* Dropdown */}
+          {showLogout && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 8px)", right: 0,
+              background: "rgba(20,20,20,0.98)", backdropFilter: "blur(20px)",
+              border: "1px solid rgba(245,158,11,0.2)",
+              borderRadius: 10, overflow: "hidden", minWidth: 160, zIndex: 200,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.6)"
+            }}>
+              <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 2 }}>Signed in as</div>
+                <div style={{ fontSize: 12, color: "#fff", fontWeight: 500,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>
+                  {user.email}
+                </div>
+              </div>
+              <button onClick={() => { setShowLogout(false); logout(); }} style={{
+                width: "100%", padding: "12px 14px", background: "none", border: "none",
+                color: "#ef4444", fontSize: 12, cursor: "pointer", textAlign: "left",
+                fontFamily: "'Orbitron', monospace", letterSpacing: 1, fontSize: 10,
+                display: "flex", alignItems: "center", gap: 8
+              }}>
+                <span>⏻</span> LOGOUT
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Tap outside to close dropdown */}
+      {showLogout && (
+        <div onClick={() => setShowLogout(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 49 }} />
+      )}
+
       {/* Main Content */}
       <div style={{ flex: 1, overflowY: "auto", position: "relative", zIndex: 1 }}>
-        {tab === "scouter" && <Scouter logs={logs} targets={targets} />}
-        {tab === "fuel" && <FuelInjection onLog={addLog} />}
-        {tab === "recipes" && <RecipeGenerator />}
-        {tab === "events" && <EventSystem isAdmin={isAdmin} />}
-        {tab === "profile" && <ProfileSetup profile={profile} onSave={setProfile} />}
+        {tab === "scouter"  && <Scouter logs={logs} targets={targets} />}
+        {tab === "fuel"     && <FuelInjection onLog={addLog} />}
+        {tab === "recipes"  && <RecipeGenerator />}
+        {tab === "events"   && <EventSystem isAdmin={isAdmin} />}
+        {tab === "profile"  && <ProfileSetup profile={profile} onSave={setProfile} />}
       </div>
 
       {/* Bottom Nav */}
       <div style={{
         position: "sticky", bottom: 0, zIndex: 50,
-        background: "rgba(15,15,15,0.97)",
-        backdropFilter: "blur(20px)",
+        background: "rgba(15,15,15,0.97)", backdropFilter: "blur(20px)",
         borderTop: "1px solid rgba(245,158,11,0.1)",
         display: "flex", justifyContent: "space-around", padding: "4px 0 8px"
       }}>
         {[
-          { id: "scouter", icon: "📡", label: "Scouter" },
-          { id: "fuel", icon: "⚡", label: "Fuel" },
-          { id: "recipes", icon: "🍖", label: "Arsenal" },
-          { id: "events", icon: "🎯", label: "Missions" },
-          { id: "profile", icon: "👤", label: "Operative" },
+          { id: "scouter",  icon: "📡", label: "Scouter"   },
+          { id: "fuel",     icon: "⚡", label: "Fuel"      },
+          { id: "recipes",  icon: "🍖", label: "Arsenal"   },
+          { id: "events",   icon: "🎯", label: "Missions"  },
+          { id: "profile",  icon: "👤", label: "Operative" },
         ].map(item => (
-          <NavItem key={item.id} icon={item.icon} label={item.label} active={tab === item.id} onClick={() => setTab(item.id)} />
+          <NavItem key={item.id} icon={item.icon} label={item.label}
+            active={tab === item.id} onClick={() => setTab(item.id)} />
         ))}
       </div>
     </div>
